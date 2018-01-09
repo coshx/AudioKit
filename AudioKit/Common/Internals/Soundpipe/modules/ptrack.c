@@ -90,6 +90,10 @@ typedef struct peak
   SPFLOAT ploudness;
 } PEAK;
 
+static int logCounter = 0;
+static FILE* fData = NULL;
+static FILE* fTrack = NULL;
+
 int sp_ptrack_create(sp_ptrack **p)
 {
     *p = malloc(sizeof(sp_ptrack));
@@ -112,6 +116,11 @@ int sp_ptrack_destroy(sp_ptrack **p)
 
 int sp_ptrack_init(sp_data *sp, sp_ptrack *p, int ihopsize, int ipeaks)
 {
+    printf("sp_ptrack_init\n");
+    
+    if(fData == NULL) fData = fopen("/Users/Shared/fData.dat", "w");
+    if(fTrack == NULL) fTrack = fopen("/Users/Shared/fTrack.dat", "w");
+    
     p->size = ihopsize;
 
     int i, winsize = p->size*2, powtwo, tmp;
@@ -297,16 +306,19 @@ static void ptrack(sp_data *sp, sp_ptrack *p)
 
     p->dbs[count] = totaldb + DBOFFSET;
 
+    logCounter++;
+    
     if (totaldb >= p->amplo) {
         npeak = 0;
 
         for (i = 4*MINBIN;i < (4*(n-2)) && npeak < numpks; i+=4) {
+            int skip = 0;
             SPFLOAT height = spec[i+2], h1 = spec[i-2], h2 = spec[i+6];
             SPFLOAT totalfreq, peakfr, tmpfr1, tmpfr2, m, var, stdev;
 
             if (height < h1 || height < h2 ||
             h1 < 0.00001*totalpower ||
-            h2 < 0.00001*totalpower) continue;
+            h2 < 0.00001*totalpower) skip = 1;
 
             peakfr= ((spec[i-8] - spec[i+8]) * (2.0 * spec[i] -
                                         spec[i+8] - spec[i-8]) +
@@ -331,18 +343,23 @@ static void ptrack(sp_data *sp, sp_ptrack *p)
 
             totalfreq = (i>>2) + m;
             if (var * totalpower > THRSH * height
-            || var < 1.0e-30) continue;
+            || var < 1.0e-30) skip = 1;
 
             stdev = (SPFLOAT)sqrt((SPFLOAT)var);
             if (totalfreq < 4) totalfreq = 4;
 
-
-            peaklist[npeak].pwidth = stdev;
-            peaklist[npeak].ppow = height;
-            peaklist[npeak].ploudness = sqrt(sqrt(height));
-            peaklist[npeak].pfreq = totalfreq;
-            npeak++;
+            
+            fprintf(fData,"%d %f %f\n", logCounter, 2 * (i>>2) * hzperbin, sqrt(sqrt(height)));
+            if(skip == 0) {
+                peaklist[npeak].pwidth = stdev;
+                peaklist[npeak].ppow = height;
+                peaklist[npeak].ploudness = sqrt(sqrt(height));
+                peaklist[npeak].pfreq = totalfreq;
+                npeak++;
+            }
         }
+        fprintf(fData,"\n");
+        fflush(fData);
 
           if (npeak > numpks) npeak = numpks;
           for (i = 0; i < maxbin; i++) histogram[i] = 0;
@@ -413,6 +430,8 @@ static void ptrack(sp_data *sp, sp_ptrack *p)
             if (freqinbins < MINFREQINBINS) {
                 histpeak.hvalue = 0;
             } else {
+                fprintf(fTrack,"%d %f\n", logCounter, 2 * hzperbin * freqnum/freqden);
+                fflush(fTrack);
                 p->cps = histpeak.hpitch = hzperbin * freqnum/freqden;
                 histpeak.hloud = DBSCAL * logf(pitchpow/n);
             }

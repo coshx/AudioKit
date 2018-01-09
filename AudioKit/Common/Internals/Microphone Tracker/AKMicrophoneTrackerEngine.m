@@ -19,6 +19,7 @@
 }
 
 - (instancetype)init {
+    printf("AKMicrophoneTrackerEngine:init");
     self = [super init];
     if (self) {
 

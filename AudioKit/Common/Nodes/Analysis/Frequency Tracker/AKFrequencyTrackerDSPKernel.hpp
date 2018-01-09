@@ -17,6 +17,7 @@ public:
     AKFrequencyTrackerDSPKernel() {}
 
     void init(int _channels, double _sampleRate) override {
+        printf("AKFrequencyTrackerDSPKernel init\n");
         AKSoundpipeKernel::init(_channels, _sampleRate);
         sp_ptrack_create(&ptrack);
         sp_ptrack_init(sp, ptrack, hopSize, peakCount);
