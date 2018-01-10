@@ -36,6 +36,7 @@
     return _kernel.trackedAmplitude;
 }
 - (float)frequency {
+    // Meekohi: weirdly, this is possibly one of the best places to do filtering.
     return _kernel.trackedFrequency;
 }
 

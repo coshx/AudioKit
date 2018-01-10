@@ -55,13 +55,30 @@ public:
         switch (address) {
         }
     }
+    
+    float median3(float a, float b, float c)
+    {
+        if ((a <= b) && (a <= c))
+        {
+            return (b <= c) ? b : c;
+        }
+        else if ((b <= a) && (b <= c))
+        {
+            return (a <= c) ? a : c;
+        }
+        else
+        {
+            return (a <= b) ? a : b;
+        }
+    }
 
     void process(AUAudioFrameCount frameCount, AUAudioFrameCount bufferOffset) override {
-
+        // Meekohi: This is the wrong place to do any filtering, because it will be called many times
+        // before hopsize actually fills up and a new frequency is estimated.
+        // Think of this as just a front-end for shovelling data into ptrack.
         for (int frameIndex = 0; frameIndex < frameCount; ++frameIndex) {
 
             int frameOffset = int(frameIndex + bufferOffset);
-
 
             for (int channel = 0; channel < channels; ++channel) {
                 float *in  = (float *)inBufferListPtr->mBuffers[channel].mData  + frameOffset;

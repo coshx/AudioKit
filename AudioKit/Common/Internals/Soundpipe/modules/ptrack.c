@@ -92,7 +92,13 @@ typedef struct peak
 
 static int logCounter = 0;
 static FILE* fData = NULL;
+static FILE* fTrackRaw = NULL;
 static FILE* fTrack = NULL;
+static FILE* fAmp = NULL;
+
+SPFLOAT median3(SPFLOAT a, SPFLOAT b , SPFLOAT c) {
+    return fmax(fmin(a,b), fmin(fmax(a,b),c));
+}
 
 int sp_ptrack_create(sp_ptrack **p)
 {
@@ -119,7 +125,9 @@ int sp_ptrack_init(sp_data *sp, sp_ptrack *p, int ihopsize, int ipeaks)
     printf("sp_ptrack_init\n");
     
     if(fData == NULL) fData = fopen("/Users/Shared/fData.dat", "w");
+    if(fTrackRaw == NULL) fTrackRaw = fopen("/Users/Shared/fTrackRaw.dat", "w");
     if(fTrack == NULL) fTrack = fopen("/Users/Shared/fTrack.dat", "w");
+    if(fAmp == NULL) fAmp = fopen("/Users/Shared/fAmp.dat", "w");
     
     p->size = ihopsize;
 
@@ -189,6 +197,10 @@ int sp_ptrack_init(sp_data *sp, sp_ptrack *p, int ihopsize, int ipeaks)
 
 static void ptrack(sp_data *sp, sp_ptrack *p)
 {
+    static SPFLOAT f1 = 440;
+    static SPFLOAT f2 = 440;
+    static SPFLOAT f3 = 440;
+    
     SPFLOAT *spec = (SPFLOAT *)p->spec1.ptr;
     SPFLOAT *spectmp = (SPFLOAT *)p->spec2.ptr;
     SPFLOAT *sig = (SPFLOAT *)p->signal.ptr;
@@ -349,7 +361,7 @@ static void ptrack(sp_data *sp, sp_ptrack *p)
             if (totalfreq < 4) totalfreq = 4;
 
             
-            fprintf(fData,"%d %f %f\n", logCounter, 2 * (i>>2) * hzperbin, sqrt(sqrt(height)));
+            if(fData != NULL) fprintf(fData,"%d %f %f\n", logCounter, 2 * (i>>2) * hzperbin, sqrt(sqrt(height)));
             if(skip == 0) {
                 peaklist[npeak].pwidth = stdev;
                 peaklist[npeak].ppow = height;
@@ -358,8 +370,9 @@ static void ptrack(sp_data *sp, sp_ptrack *p)
                 npeak++;
             }
         }
-        fprintf(fData,"\n");
-        fflush(fData);
+        
+        if(fData != NULL) fprintf(fData,"\n");
+        if(fData != NULL) fflush(fData);
 
           if (npeak > numpks) npeak = numpks;
           for (i = 0; i < maxbin; i++) histogram[i] = 0;
@@ -430,10 +443,20 @@ static void ptrack(sp_data *sp, sp_ptrack *p)
             if (freqinbins < MINFREQINBINS) {
                 histpeak.hvalue = 0;
             } else {
-                fprintf(fTrack,"%d %f\n", logCounter, 2 * hzperbin * freqnum/freqden);
-                fflush(fTrack);
-                p->cps = histpeak.hpitch = hzperbin * freqnum/freqden;
+                if(fTrackRaw != NULL) fprintf(fTrackRaw,"%d %f\n", logCounter, 2 * hzperbin * freqnum/freqden);
+                if(fTrackRaw != NULL) fflush(fTrackRaw);
+                
+                if( exp(p->dbs[p->histcnt] / 20.0 * log(10.0)) > 0.03 ) {
+                    f1 = f2;
+                    f2 = f3;
+                    f3 = hzperbin * freqnum/freqden;
+                }
+                
+                p->cps = histpeak.hpitch = median3(f1,f2,f3);
                 histpeak.hloud = DBSCAL * logf(pitchpow/n);
+                
+                if(fAmp != NULL) fprintf(fAmp,"%d %f %f\n", logCounter, histpeak.hloud, exp(p->dbs[p->histcnt] / 20.0 * log(10.0)));
+                if(fAmp != NULL) fflush(fAmp);
             }
         }
     }
@@ -444,17 +467,21 @@ int sp_ptrack_compute(sp_data *sp, sp_ptrack *p, SPFLOAT *in, SPFLOAT *freq, SPF
     SPFLOAT *buf = (SPFLOAT *)p->signal.ptr;
     int pos = p->cnt, h = p->hopsize;
     SPFLOAT scale = p->dbfs;
-
+    
+    // Keep sucking down samples until you have `hopsize` of them, then actually run ptrack.
     if (pos == h) {
         ptrack(sp,p);
         pos = 0;
+        
+        if(fTrack != NULL) fprintf(fTrack,"%d %f\n", logCounter, p->cps * 2);
+        if(fTrack != NULL) fflush(fTrack);
     }
     buf[pos] = *in * scale;
     pos++;
 
     *freq = p->cps;
     *amp =  exp(p->dbs[p->histcnt] / 20.0 * log(10.0));
-
+    
     p->cnt = pos;
 
     return SP_OK;
