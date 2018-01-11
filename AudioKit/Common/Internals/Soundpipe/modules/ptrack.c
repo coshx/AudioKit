@@ -105,7 +105,7 @@ SPFLOAT median3(SPFLOAT a, SPFLOAT b , SPFLOAT c) {
 
 double gauss(double x, double sigma){
     double r = (1.0 / (sigma * 2.506628274631)) * exp(- (x * x) / (2.0 * sigma * sigma)) ;
-    printf( "%.2f, %.2f, %.2f\n", x, sigma, r );
+    //printf( "%.2f, %.2f, %.2f\n", x, sigma, r );
     return r;
 }
 
@@ -476,16 +476,27 @@ static void ptrack(sp_data *sp, sp_ptrack *p)
                 a2 = a3;
                 a3 = DBSCAL * logf(pitchpow/n);
                 
-                const SPFLOAT F_SIG = 80;
+                const SPFLOAT F_SIG = 10.0;
                 const SPFLOAT A_SIG = 0.1;
                 lastAmplitude = a2;
-                lastFrequency = ( f1 * gauss(lastFrequency - f1,F_SIG) * gauss(lastAmplitude - a1,A_SIG) +
-                                  f2 * gauss(lastFrequency - f2,F_SIG) * gauss(lastAmplitude - a2,A_SIG) +
-                                  f3 * gauss(lastFrequency - f3,F_SIG) * gauss(lastAmplitude - a3,A_SIG) ) /
-                                     ( gauss(lastFrequency - f1,F_SIG) * gauss(lastAmplitude - a1,A_SIG) +
-                                       gauss(lastFrequency - f2,F_SIG) * gauss(lastAmplitude - a2,A_SIG) +
-                                       gauss(lastFrequency - f3,F_SIG) * gauss(lastAmplitude - a3,A_SIG) );
+//                lastFrequency = ( f1 * gauss(lastFrequency - f1,F_SIG) * gauss(lastAmplitude - a1,A_SIG) +
+//                                  f2 * gauss(lastFrequency - f2,F_SIG) * gauss(lastAmplitude - a2,A_SIG) +
+//                                  f3 * gauss(lastFrequency - f3,F_SIG) * gauss(lastAmplitude - a3,A_SIG) ) /
+//                                     ( gauss(lastFrequency - f1,F_SIG) * gauss(lastAmplitude - a1,A_SIG) +
+//                                       gauss(lastFrequency - f2,F_SIG) * gauss(lastAmplitude - a2,A_SIG) +
+//                                       gauss(lastFrequency - f3,F_SIG) * gauss(lastAmplitude - a3,A_SIG) );
                 
+                lastFrequency = ( f1 * gauss(lastFrequency - f1,F_SIG) +
+                                 f2 * gauss(lastFrequency - f2,F_SIG) +
+                                 f3 * gauss(lastFrequency - f3,F_SIG) ) /
+                                        ( gauss(lastFrequency - f1,F_SIG) +
+                                         gauss(lastFrequency - f2,F_SIG) +
+                                         gauss(lastFrequency - f3,F_SIG) );
+                
+                if(isnan(lastFrequency)) {
+                    lastFrequency = 440; // reset to something sane.
+                }
+
                 p->cps = histpeak.hpitch = lastFrequency;
                 histpeak.hloud = DBSCAL * logf(pitchpow/n);
                 
