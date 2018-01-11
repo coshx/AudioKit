@@ -124,10 +124,13 @@ int sp_ptrack_init(sp_data *sp, sp_ptrack *p, int ihopsize, int ipeaks)
 {
     printf("sp_ptrack_init\n");
     
-    if(fData == NULL) fData = fopen("/Users/Shared/fData.dat", "w");
-    if(fTrackRaw == NULL) fTrackRaw = fopen("/Users/Shared/fTrackRaw.dat", "w");
-    if(fTrack == NULL) fTrack = fopen("/Users/Shared/fTrack.dat", "w");
-    if(fAmp == NULL) fAmp = fopen("/Users/Shared/fAmp.dat", "w");
+#define AK_LOGGING 1
+    if(AK_LOGGING) {
+        if(fData == NULL) fData = fopen("/Users/Shared/fData.dat", "w");
+        if(fTrackRaw == NULL) fTrackRaw = fopen("/Users/Shared/fTrackRaw.dat", "w");
+        if(fTrack == NULL) fTrack = fopen("/Users/Shared/fTrack.dat", "w");
+        if(fAmp == NULL) fAmp = fopen("/Users/Shared/fAmp.dat", "w");
+    }
     
     p->size = ihopsize;
 
@@ -473,8 +476,10 @@ int sp_ptrack_compute(sp_data *sp, sp_ptrack *p, SPFLOAT *in, SPFLOAT *freq, SPF
         ptrack(sp,p);
         pos = 0;
         
-        if(fTrack != NULL) fprintf(fTrack,"%d %f\n", logCounter, p->cps * 2);
-        if(fTrack != NULL) fflush(fTrack);
+        if( exp(p->dbs[p->histcnt] / 20.0 * log(10.0)) > 0.03 ) {
+            if(fTrack != NULL) fprintf(fTrack,"%d %f\n", logCounter, p->cps * 2);
+            if(fTrack != NULL) fflush(fTrack);
+        }
     }
     buf[pos] = *in * scale;
     pos++;
