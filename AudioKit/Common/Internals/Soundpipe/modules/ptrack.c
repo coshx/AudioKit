@@ -103,6 +103,12 @@ SPFLOAT median3(SPFLOAT a, SPFLOAT b , SPFLOAT c) {
     return fmax(fmin(a,b), fmin(fmax(a,b),c));
 }
 
+double gauss(double x, double sigma){
+    double r = (1.0 / (sigma * 2.506628274631)) * exp(- (x * x) / (2.0 * sigma * sigma)) ;
+    printf( "%.2f, %.2f, %.2f\n", x, sigma, r );
+    return r;
+}
+
 int sp_ptrack_create(sp_ptrack **p)
 {
     *p = malloc(sizeof(sp_ptrack));
@@ -208,9 +214,14 @@ int sp_ptrack_init(sp_data *sp, sp_ptrack *p, int ihopsize, int ipeaks)
 
 static void ptrack(sp_data *sp, sp_ptrack *p)
 {
-    static SPFLOAT f1 = -1;
-    static SPFLOAT f2 = -1;
-    static SPFLOAT f3 = -1;
+    static SPFLOAT f1 = 0;
+    static SPFLOAT f2 = 0;
+    static SPFLOAT f3 = 0;
+    static SPFLOAT lastFrequency = 0;
+    static SPFLOAT a1 = 0;
+    static SPFLOAT a2 = 0;
+    static SPFLOAT a3 = 0;
+    static SPFLOAT lastAmplitude = 0;
     
     SPFLOAT *spec = (SPFLOAT *)p->spec1.ptr;
     SPFLOAT *spectmp = (SPFLOAT *)p->spec2.ptr;
@@ -459,18 +470,24 @@ static void ptrack(sp_data *sp, sp_ptrack *p)
                     
                 f1 = f2;
                 f2 = f3;
-                if( exp(p->dbs[p->histcnt] / 20.0 * log(10.0)) > 0.05 ) {
-                    f3 = hzperbin * freqnum/freqden;
-                } else {
-                    f3 = -1;
-                }
-                if(f1 > 0 && f2 > 0 && f3 > 0) {
-                    p->cps = histpeak.hpitch = median3(f1,f2,f3);
-                    histpeak.hloud = DBSCAL * logf(pitchpow/n);
-                } else {
-                    p->cps = histpeak.hpitch = 0;
-                    histpeak.hloud = 0;
-                }
+                f3 = hzperbin * freqnum/freqden;
+                
+                a1 = a2;
+                a2 = a3;
+                a3 = DBSCAL * logf(pitchpow/n);
+                
+                const SPFLOAT F_SIG = 80;
+                const SPFLOAT A_SIG = 0.1;
+                lastAmplitude = a2;
+                lastFrequency = ( f1 * gauss(lastFrequency - f1,F_SIG) * gauss(lastAmplitude - a1,A_SIG) +
+                                  f2 * gauss(lastFrequency - f2,F_SIG) * gauss(lastAmplitude - a2,A_SIG) +
+                                  f3 * gauss(lastFrequency - f3,F_SIG) * gauss(lastAmplitude - a3,A_SIG) ) /
+                                     ( gauss(lastFrequency - f1,F_SIG) * gauss(lastAmplitude - a1,A_SIG) +
+                                       gauss(lastFrequency - f2,F_SIG) * gauss(lastAmplitude - a2,A_SIG) +
+                                       gauss(lastFrequency - f3,F_SIG) * gauss(lastAmplitude - a3,A_SIG) );
+                
+                p->cps = histpeak.hpitch = lastFrequency;
+                histpeak.hloud = DBSCAL * logf(pitchpow/n);
                 
                 if(fAmp != NULL) fprintf(fAmp,"%d %f %f\n", logCounter, histpeak.hloud, exp(p->dbs[p->histcnt] / 20.0 * log(10.0)));
                 if(fAmp != NULL) fflush(fAmp);
