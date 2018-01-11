@@ -27,6 +27,9 @@
 #define BINPEROCT 48
 #define BPEROOVERLOG2 69.24936196
 #define FACTORTOBINS 4/0.0145453
+//#define BINPEROCT 24  /* bins per octave */
+//#define BPEROOVERLOG2 34.62468098133  /* BINSPEROCT/log(2) */
+//#define FACTORTOBINS 4/0.0293022  /* 4 / (pow(2.,1/BINPEROCT) - 1) */
 #define BINGUARD 10
 #define PARTIALDEVIANCE 0.023
 #define DBSCAL 3.333
@@ -108,6 +111,11 @@ int sp_ptrack_create(sp_ptrack **p)
 
 int sp_ptrack_destroy(sp_ptrack **p)
 {
+    if(fData == NULL) fclose(fData);
+    if(fTrackRaw == NULL) fclose(fTrackRaw);
+    if(fTrack == NULL) fclose(fTrack);
+    if(fAmp == NULL) fclose(fAmp);
+    
     sp_ptrack *pp = *p;
     sp_auxdata_free(&pp->signal);
     sp_auxdata_free(&pp->prev);
@@ -193,16 +201,16 @@ int sp_ptrack_init(sp_data *sp, sp_ptrack *p, int ihopsize, int ipeaks)
     p->amphi = MAXAMPS;
     p->npartial = 7;
     p->dbfs = 32768.0;
-    p->prevf = p->cps = 100.0;
+    p->prevf = p->cps = 440.0;
 
     return SP_OK;
 }
 
 static void ptrack(sp_data *sp, sp_ptrack *p)
 {
-    static SPFLOAT f1 = 440;
-    static SPFLOAT f2 = 440;
-    static SPFLOAT f3 = 440;
+    static SPFLOAT f1 = -1;
+    static SPFLOAT f2 = -1;
+    static SPFLOAT f3 = -1;
     
     SPFLOAT *spec = (SPFLOAT *)p->spec1.ptr;
     SPFLOAT *spectmp = (SPFLOAT *)p->spec2.ptr;
@@ -304,7 +312,7 @@ static void ptrack(sp_data *sp, sp_ptrack *p)
 
     for (i = 0; i < n + 4*FLTLEN; i++) prev[i] = spectmp[i];
 
-    for (i = 0; i < MINBIN; i++) spec[4*i + 2] = spec[4*i + 3] =0.0;
+    for (i = 0; i < MINBIN; i++) spec[4*i + 2] = spec[4*i + 3] = 0.0;
 
     for (i = 4*MINBIN, totalpower = 0; i < (n-2)*4; i += 4) {
         SPFLOAT re = spec[i] - 0.5 * (spec[i-8] + spec[i+8]);
@@ -403,8 +411,8 @@ static void ptrack(sp_data *sp, sp_ptrack *p)
             }
           }
 
-
-        for (best = 0, indx = -1, j=0; j < maxbin; j++) {
+        // Adjusted this to only search through 2000Hz or so (not interested in high freq junk)
+        for (best = 0, indx = -1, j=0; j < maxbin && j < BINPEROCT*9; j++) {
             if (histogram[j] > best) {
                 indx = j;
                 best = histogram[j];
@@ -448,15 +456,21 @@ static void ptrack(sp_data *sp, sp_ptrack *p)
             } else {
                 if(fTrackRaw != NULL) fprintf(fTrackRaw,"%d %f\n", logCounter, 2 * hzperbin * freqnum/freqden);
                 if(fTrackRaw != NULL) fflush(fTrackRaw);
-                
-                if( exp(p->dbs[p->histcnt] / 20.0 * log(10.0)) > 0.03 ) {
-                    f1 = f2;
-                    f2 = f3;
+                    
+                f1 = f2;
+                f2 = f3;
+                if( exp(p->dbs[p->histcnt] / 20.0 * log(10.0)) > 0.05 ) {
                     f3 = hzperbin * freqnum/freqden;
+                } else {
+                    f3 = -1;
                 }
-                
-                p->cps = histpeak.hpitch = median3(f1,f2,f3);
-                histpeak.hloud = DBSCAL * logf(pitchpow/n);
+                if(f1 > 0 && f2 > 0 && f3 > 0) {
+                    p->cps = histpeak.hpitch = median3(f1,f2,f3);
+                    histpeak.hloud = DBSCAL * logf(pitchpow/n);
+                } else {
+                    p->cps = histpeak.hpitch = 0;
+                    histpeak.hloud = 0;
+                }
                 
                 if(fAmp != NULL) fprintf(fAmp,"%d %f %f\n", logCounter, histpeak.hloud, exp(p->dbs[p->histcnt] / 20.0 * log(10.0)));
                 if(fAmp != NULL) fflush(fAmp);
@@ -476,10 +490,8 @@ int sp_ptrack_compute(sp_data *sp, sp_ptrack *p, SPFLOAT *in, SPFLOAT *freq, SPF
         ptrack(sp,p);
         pos = 0;
         
-        if( exp(p->dbs[p->histcnt] / 20.0 * log(10.0)) > 0.03 ) {
-            if(fTrack != NULL) fprintf(fTrack,"%d %f\n", logCounter, p->cps * 2);
-            if(fTrack != NULL) fflush(fTrack);
-        }
+        if(fTrack != NULL) fprintf(fTrack,"%d %f\n", logCounter, p->cps * 2);
+        if(fTrack != NULL) fflush(fTrack);
     }
     buf[pos] = *in * scale;
     pos++;
