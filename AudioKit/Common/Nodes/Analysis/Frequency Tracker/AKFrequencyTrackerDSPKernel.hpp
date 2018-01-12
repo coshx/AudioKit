@@ -19,8 +19,8 @@ public:
     void init(int _channels, double _sampleRate) override {
         printf("AKFrequencyTrackerDSPKernel init\n");
         AKSoundpipeKernel::init(_channels, _sampleRate);
-        sp_ptrack_create(&ptrack);
-        sp_ptrack_init(sp, ptrack, hopSize, peakCount);
+        Yin_init(&yin, 2048, 0.20); // Tony uses 0.2
+        bufIdx = 0;
     }
 
     void start() {
@@ -32,7 +32,6 @@ public:
     }
 
     void destroy() {
-        sp_ptrack_destroy(&ptrack);
         AKSoundpipeKernel::destroy();
     }
 
@@ -55,22 +54,6 @@ public:
         switch (address) {
         }
     }
-    
-    float median3(float a, float b, float c)
-    {
-        if ((a <= b) && (a <= c))
-        {
-            return (b <= c) ? b : c;
-        }
-        else if ((b <= a) && (b <= c))
-        {
-            return (a <= c) ? a : c;
-        }
-        else
-        {
-            return (a <= b) ? a : b;
-        }
-    }
 
     void process(AUAudioFrameCount frameCount, AUAudioFrameCount bufferOffset) override {
         // Meekohi: This is the wrong place to do any filtering, because it will be called many times
@@ -80,12 +63,25 @@ public:
 
             int frameOffset = int(frameIndex + bufferOffset);
 
-            for (int channel = 0; channel < channels; ++channel) {
+            for (int channel = 0; channel < 1; ++channel) { // don't use the right stereo.
+                
+                // This is just one sample!!!!!
                 float *in  = (float *)inBufferListPtr->mBuffers[channel].mData  + frameOffset;
                 float temp = *in;
                 float *out = (float *)outBufferListPtr->mBuffers[channel].mData + frameOffset;
                 if (started) {
-                    sp_ptrack_compute(sp, ptrack, in, &trackedFrequency, &trackedAmplitude);
+                    if(bufIdx == 0) {
+                        trackedFrequency = Yin_getPitch(&yin, &(analysisBlock[bufIdx]));
+                    }
+                    
+                    analysisBlock[bufIdx] = temp;
+                    analysisBlock[bufIdx+2048] = temp;
+                    bufIdx++;
+                    if(bufIdx >= 2048) {
+                        bufIdx = 0;
+                    }
+
+                    printf("%f %f #blep\n", temp, trackedFrequency);
                 } else {
                     trackedAmplitude = 0;
                     trackedFrequency = 0;
@@ -99,10 +95,11 @@ public:
 
 private:
 
-    int hopSize = 4096;
-    int peakCount = 20;
+    int hopSize = 256; // estimate every 5.8 ms // I don't know what makes sense here. This is how often you're willing to re-estimate a frame and will effect performance.
+    float analysisBlock[4096]; // use a 46ms block of data but 2x space so you always have 46ms (2048) filled up
+    int bufIdx = 0;
 
-    sp_ptrack *ptrack = nullptr;
+    Yin yin;
 
 public:
     float trackedAmplitude = 0.0;

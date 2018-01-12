@@ -19,7 +19,7 @@
 }
 
 - (instancetype)init {
-    printf("AKMicrophoneTrackerEngine:init");
+    printf("AKMicrophoneTrackerEngine:init"); // Harmony Helper does not use this.
     self = [super init];
     if (self) {
 

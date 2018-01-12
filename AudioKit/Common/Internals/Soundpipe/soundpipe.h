@@ -1172,6 +1172,18 @@ typedef struct {
     uint32_t counter, dur;
 } sp_randh;
 
+typedef struct _Yin {
+    int bufferSize;      /**< Size of the audio buffer to be analysed */
+    int halfBufferSize;  /**< Half the buffer length */
+    float* yinBuffer;        /**< Buffer that stores the results of the intermediate processing steps of the algorithm */
+    float probability;       /**< Probability that the pitch found is correct as a decimal (i.e 0.85 is 85%) */
+    float threshold;         /**< Allowed uncertainty in the result as a decimal (i.e 0.15 is 15%) */
+} Yin;
+void Yin_init(Yin *yin, int bufferSize, float threshold);
+float Yin_getPitch(Yin *yin, float* buffer);
+float Yin_getProbability(Yin *yin);
+
+
 int sp_randh_create(sp_randh **p);
 int sp_randh_destroy(sp_randh **p);
 int sp_randh_init(sp_data *sp, sp_randh *p);
