@@ -212,6 +212,11 @@ static void ptrack(sp_data *sp, sp_ptrack *p)
     static SPFLOAT f2 = -1;
     static SPFLOAT f3 = -1;
     
+    static SPFLOAT floor = 9999999999;
+    static SPFLOAT a1 = 0;
+    static SPFLOAT a2 = 0;
+    static SPFLOAT a3 = 0;
+    
     SPFLOAT *spec = (SPFLOAT *)p->spec1.ptr;
     SPFLOAT *spectmp = (SPFLOAT *)p->spec2.ptr;
     SPFLOAT *sig = (SPFLOAT *)p->signal.ptr;
@@ -456,14 +461,24 @@ static void ptrack(sp_data *sp, sp_ptrack *p)
             } else {
                 if(fTrackRaw != NULL) fprintf(fTrackRaw,"%d %f\n", logCounter, 2 * hzperbin * freqnum/freqden);
                 if(fTrackRaw != NULL) fflush(fTrackRaw);
-                    
+                
+                a1 = a2;
+                a2 = a3;
+                a3 = exp(p->dbs[p->histcnt] / 20.0 * log(10.0));
+                floor = fmin(floor,a3);
+                
+                int is_muted = -100;
                 f1 = f2;
                 f2 = f3;
-                if( exp(p->dbs[p->histcnt] / 20.0 * log(10.0)) > 0.05 ) {
+                if( a3-floor > 0.05  &&  6*(a3-floor) > (a1+a2-2*floor) )  { // total amplitude > 0.05, and a3 must be at least 33% of (a1+a2)/2
                     f3 = hzperbin * freqnum/freqden;
                 } else {
+                    is_muted = 1;
                     f3 = -1;
                 }
+                
+                
+                
                 if(f1 > 0 && f2 > 0 && f3 > 0) {
                     p->cps = histpeak.hpitch = median3(f1,f2,f3);
                     histpeak.hloud = DBSCAL * logf(pitchpow/n);
@@ -472,7 +487,7 @@ static void ptrack(sp_data *sp, sp_ptrack *p)
                     histpeak.hloud = 0;
                 }
                 
-                if(fAmp != NULL) fprintf(fAmp,"%d %f %f\n", logCounter, histpeak.hloud, exp(p->dbs[p->histcnt] / 20.0 * log(10.0)));
+                if(fAmp != NULL) fprintf(fAmp,"%d %f %f %f\n", logCounter, cumstrength, a3, a3*is_muted);
                 if(fAmp != NULL) fflush(fAmp);
             }
         }
