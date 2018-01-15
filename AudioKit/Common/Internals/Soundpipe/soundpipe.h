@@ -1172,6 +1172,27 @@ typedef struct {
     uint32_t counter, dur;
 } sp_randh;
 
+// plltrack
+typedef struct biquad_ {
+    double a0, a1, a2, b1, b2;
+    double del1, del2;
+} BIQUAD;
+
+typedef struct
+{
+    int h;
+    SPFLOAT *freq, *lock;
+    SPFLOAT *asig,*kd,*klpf,*klpfQ,*klf,*khf,*kthresh;
+    BIQUAD   fils[6];
+    double  ace, xce;
+    double cos_x, sin_x, x1, x2;
+    SPFLOAT klpf_o, klpfQ_o, klf_o,khf_o;
+    
+} sp_plltrack;
+int plltrack_set(sp_plltrack *p);
+int plltrack_perf(sp_plltrack *p);
+
+
 int sp_randh_create(sp_randh **p);
 int sp_randh_destroy(sp_randh **p);
 int sp_randh_init(sp_data *sp, sp_randh *p);
