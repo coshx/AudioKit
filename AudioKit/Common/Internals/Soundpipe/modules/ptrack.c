@@ -132,7 +132,7 @@ int sp_ptrack_init(sp_data *sp, sp_ptrack *p, int ihopsize, int ipeaks)
 {
     printf("sp_ptrack_init\n");
     
-#define AK_LOGGING 1
+#define AK_LOGGING 0
     if(AK_LOGGING) {
         if(fData == NULL) fData = fopen("/Users/Shared/fData.dat", "w");
         if(fTrackRaw == NULL) fTrackRaw = fopen("/Users/Shared/fTrackRaw.dat", "w");
@@ -408,16 +408,23 @@ static void ptrack(sp_data *sp, sp_ptrack *p)
                 int ibw = lastbin - firstbin;
                 if (firstbin < -BINGUARD) break;
                 para = 1.0 / (putbandwidth * putbandwidth);
-                for (k = 0, pphase = firstbin-bin; k <= ibw;
-                     k++,pphase += 1.0)
+                for (k = 0, pphase = firstbin-bin; k <= ibw; k++, pphase += 1.0)
                   histogram[k+firstbin] += score * (1.0 - para * pphase * pphase);
 
               }
             }
           }
 
-        // Adjusted this to only search through 2000Hz or so (not interested in high freq junk)
-        for (best = 0, indx = -1, j=0; j < maxbin && j < BINPEROCT*9; j++) {
+        // Adjusted this to only search through E6 or so (not interested in high freq junk)
+        // e^( (1 / 69.24936196) * (400+96)) = 1448 Hz
+        // 1274 is about the top of D6 realistically.
+        //
+        // const int maxD6 = (int)(1 + BPEROOVERLOG2*log(1274.0/2)-96.0); // this isn't quite right for some reason? factor of 2 somewhere?
+        // 290: 1316Hz
+        // 280: 1211Hz
+        const int maxD6 = 284;
+
+        for (best = 0, indx = -1, j=0; j < maxbin && j < maxD6; j++) {
             if (histogram[j] > best) {
                 indx = j;
                 best = histogram[j];
