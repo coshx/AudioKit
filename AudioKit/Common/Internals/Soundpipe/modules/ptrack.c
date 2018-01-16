@@ -90,6 +90,10 @@ typedef struct peak
   SPFLOAT ploudness;
 } PEAK;
 
+SPFLOAT median3(SPFLOAT a, SPFLOAT b , SPFLOAT c) {
+    return fmax(fmin(a,b), fmin(fmax(a,b),c));
+}
+
 int sp_ptrack_create(sp_ptrack **p)
 {
     *p = malloc(sizeof(sp_ptrack));
@@ -180,6 +184,14 @@ int sp_ptrack_init(sp_data *sp, sp_ptrack *p, int ihopsize, int ipeaks)
 
 static void ptrack(sp_data *sp, sp_ptrack *p)
 {
+    static SPFLOAT f1 = -1;
+    static SPFLOAT f2 = -1;
+    static SPFLOAT f3 = -1;
+    static SPFLOAT floor = 9999999999;
+    static SPFLOAT a1 = 0;
+    static SPFLOAT a2 = 0;
+    static SPFLOAT a3 = 0;
+
     SPFLOAT *spec = (SPFLOAT *)p->spec1.ptr;
     SPFLOAT *spectmp = (SPFLOAT *)p->spec2.ptr;
     SPFLOAT *sig = (SPFLOAT *)p->signal.ptr;
@@ -370,8 +382,14 @@ static void ptrack(sp_data *sp, sp_ptrack *p)
             }
           }
 
-
-        for (best = 0, indx = -1, j=0; j < maxbin; j++) {
+        // Adjusted this to only search through E6 or so
+        // 1274Hz is about the top of D6 realistically.
+        //
+        // const int maxD6 = (int)(1 + BPEROOVERLOG2*log(1274.0/2)-96.0); // this isn't quite right for some reason? factor of 2 somewhere?
+        // 290: 1316Hz
+        // 280: 1211Hz
+        const int maxD6 = 284;
+        for (best = 0, indx = -1, j=0; j < maxbin && j < maxD6; j++) {
             if (histogram[j] > best) {
                 indx = j;
                 best = histogram[j];
@@ -413,8 +431,26 @@ static void ptrack(sp_data *sp, sp_ptrack *p)
             if (freqinbins < MINFREQINBINS) {
                 histpeak.hvalue = 0;
             } else {
-                p->cps = histpeak.hpitch = hzperbin * freqnum/freqden;
-                histpeak.hloud = DBSCAL * logf(pitchpow/n);
+                a1 = a2;
+                a2 = a3;
+                a3 = exp(p->dbs[p->histcnt] / 20.0 * log(10.0));
+                floor = fmin(floor,a3);
+
+                f1 = f2;
+                f2 = f3;
+                if( a3-floor > 0.05  &&  6*(a3-floor) > (a1+a2-2*floor) )  { // total amplitude > 0.05, and a3 must be at least 33% of (a1+a2)/2
+                    f3 = hzperbin * freqnum/freqden;
+                } else {
+                    f3 = -1;
+                }
+
+                if(f1 > 0 && f2 > 0 && f3 > 0) {
+                    p->cps = histpeak.hpitch = median3(f1,f2,f3);
+                    histpeak.hloud = DBSCAL * logf(pitchpow/n);
+                } else {
+                    p->cps = histpeak.hpitch = 0;
+                    histpeak.hloud = 0;
+                }
             }
         }
     }
