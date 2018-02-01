@@ -3,7 +3,7 @@
 //  AudioKit
 //
 //  Created by Aurelius Prochazka, revision history on Github.
-//  Copyright © 2017 Aurelius Prochazka. All rights reserved.
+//  Copyright © 2017 AudioKit. All rights reserved.
 //
 
 /// This is a phase locked vocoder. It has the ability to play back an audio
@@ -35,7 +35,7 @@ open class AKPhaseLockedVocoder: AKNode, AKComponent {
     @objc open dynamic var position: Double = 0 {
         willSet {
             if position != newValue {
-                if internalAU?.isSetUp() ?? false {
+                if internalAU?.isSetUp ?? false {
                     if let existingToken = token {
                         positionParameter?.setValue(Float(newValue), originator: existingToken)
                     }
@@ -50,7 +50,7 @@ open class AKPhaseLockedVocoder: AKNode, AKComponent {
     @objc open dynamic var amplitude: Double = 1 {
         willSet {
             if amplitude != newValue {
-                if internalAU?.isSetUp() ?? false {
+                if internalAU?.isSetUp ?? false {
                     if let existingToken = token {
                         amplitudeParameter?.setValue(Float(newValue), originator: existingToken)
                     }
@@ -65,7 +65,7 @@ open class AKPhaseLockedVocoder: AKNode, AKComponent {
     @objc open dynamic var pitchRatio: Double = 1 {
         willSet {
             if pitchRatio != newValue {
-                if internalAU?.isSetUp() ?? false {
+                if internalAU?.isSetUp ?? false {
                     if let existingToken = token {
                         pitchRatioParameter?.setValue(Float(newValue), originator: existingToken)
                     }
@@ -78,7 +78,7 @@ open class AKPhaseLockedVocoder: AKNode, AKComponent {
 
     /// Tells whether the node is processing (ie. started, playing, or active)
     @objc open dynamic var isStarted: Bool {
-        return internalAU?.isPlaying() ?? false
+        return internalAU?.isPlaying ?? false
     }
 
     fileprivate var avAudiofile: AVAudioFile

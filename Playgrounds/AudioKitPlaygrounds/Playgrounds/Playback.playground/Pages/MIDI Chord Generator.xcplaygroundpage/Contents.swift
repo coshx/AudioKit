@@ -16,7 +16,7 @@ var mixer = AKMixer(reverb)
 mixer.volume = 5.0
 
 AudioKit.output = mixer
-AudioKit.start()
+try AudioKit.start()
 
 enum Key {
     case C, Db, D, Eb, E, F, Gb, G, Ab, A, Bb, B
@@ -82,7 +82,7 @@ enum Mode {
 var key = Key.C
 var mode = Mode.major
 
-let midi = AKMIDI()
+let midi = AudioKit.midi
 
 midi.inputNames
 midi.openInput()

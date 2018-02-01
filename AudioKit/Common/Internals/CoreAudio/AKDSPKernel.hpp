@@ -2,7 +2,7 @@
 //  AKDSPKernel.hpp
 //  AudioKit
 //
-//  Created by Aurelius Prochazka on 7/1/17.
+//  Created by Aurelius Prochazka, revision history on GitHub.
 //  Copyright © 2017 AudioKit. All rights reserved.
 //
 
@@ -80,5 +80,9 @@ public:
 
 };
 
+static inline double noteToHz(int noteNumber)
+{
+    return 440. * exp2((noteNumber - 69)/12.);
+}
 
 
